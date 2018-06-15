@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+import time
+from datetime import timedelta
 import os.path
 import tensorflow as tf
 import helper
@@ -33,7 +34,8 @@ def load_vgg(sess, vgg_path):
     vgg_layer3_out_tensor_name = 'layer3_out:0'
     vgg_layer4_out_tensor_name = 'layer4_out:0'
     vgg_layer7_out_tensor_name = 'layer7_out:0'
-    
+    tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
+    graph = tf.get_default_graph()
     w1 = graph.get_tensor_by_name(vgg_input_tensor_name)
     keep_prob = graph.get_tensor_by_name(vgg_keep_prob_tensor_name)
     layer3 = graph.get_tensor_by_name(vgg_layer3_out_tensor_name)
@@ -41,7 +43,6 @@ def load_vgg(sess, vgg_path):
     layer7 = graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
     return w1, keep_prob, layer3, layer4, layer7
 tests.test_load_vgg(load_vgg, tf)
-
 
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
@@ -60,7 +61,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     output = tf.layers.conv2d_transpose(output, num_classes, 4, 2, padding='same', kernel_initializer=tf.random_normal_initializer(stddev=1e-3),kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-5))
     layer3_conv_1x1 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, 1,padding='same', kernel_initializer=tf.random_normal_initializer(stddev=1e-3), kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-5))
     output = tf.add(output, layer3_conv_1x1)
-    output = tf.layers.conv2d_transpose(output, num_classes, 16, 8,padding='same', kernel_initializer=tf.random_normal_initializer(stddev=1e-3),kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-5))   
+    output = tf.layers.conv2d_transpose(output, num_classes, 16, 8,padding='same', kernel_initializer=tf.random_normal_initializer(stddev=1e-3),kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-5))
     return output
 tests.test_layers(layers)
 
@@ -82,7 +83,6 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     return logits, train_op, cross_entropy_loss
 tests.test_optimize(optimize)
 
-
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
              correct_label, keep_prob, learning_rate):
     """
@@ -101,12 +101,14 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     # TODO: Implement function
     for epoch in range(epochs):
         s_time = time.time()
+        print("Epoch")
+        print(epoch)
         for image, targets in get_batches_fn(batch_size):
-            _, loss = sess.run([train_op, cross_entropy_loss], 
-                feed_dict = {input_image: image, correct_label: targets, keep_prob: keep_prob ,learning_rate: learning_rate })
+            _, loss = sess.run([train_op, cross_entropy_loss],
+                feed_dict = {input_image: image, correct_label: targets, keep_prob: 0.5 ,learning_rate: 0.1 })
         # Print data on the learning process
         print("Epoch: {}".format(epoch + 1), "/ {}".format(epochs), " Loss: {:.3f}".format(loss), " Time: ",str(timedelta(seconds=(time.time() - s_time))))
-    
+
 tests.test_train_nn(train_nn)
 
 
@@ -126,6 +128,7 @@ def run():
     #  https://www.cityscapes-dataset.com/
 
     with tf.Session() as sess:
+        print("New session started")
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
@@ -140,7 +143,7 @@ def run():
         correct_label = tf.placeholder(dtype = tf.float32, shape = (None, None, None, num_classes))
         learning_rate = tf.placeholder(dtype = tf.float32)
         logits, train_op, cross_entropy_loss = optimize(output, correct_label, learning_rate, num_classes)
-        
+
         # TODO: Train NN using the train_nn function
         tf.set_random_seed(123)
         sess.run(tf.global_variables_initializer())
